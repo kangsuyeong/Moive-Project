@@ -1,92 +1,17 @@
 let API_ACCESS_TOKEN = config.TMDB_API_ACCESS_TOKEN; //API 토큰 받아오기
-let url = new URL(
-  `https://api.themoviedb.org/3/movie/now_playing?region=KR&language=ko-KR`
-); //현재 한국에서 상영중인 영화목록(기본셋팅)
+let url = new URL(`https://api.themoviedb.org/3/movie/now_playing?region=KR&language=ko-KR`); //현재 한국에서 상영중인 영화목록(기본셋팅)
 let tmdbImageBaseUrl = "https://image.tmdb.org/t/p/w500";
 
-let checkMenus = document.querySelector(".menus")
-let checkGenres = document.getElementById("genre_menus")
-
-//선옥작성
-const searchIcon = document.querySelector(".searchIcon");
-const search2Icon = document.querySelector(".search2Icon");
-const searchInput = document.querySelector(".searchInput");
-const grade = document.querySelector(".grade");
-
-searchIcon.addEventListener("click", () => {
-  searchIcon.classList.add("active");
-  searchInput.classList.add("active");
-  search2Icon.classList.add("active");
-});
-
-window.enterkeySearch = () => {
-  if (window.event.keyCode == 13) {
-    getMoviesByKeyword();
-  }
-};
-
-const getMoviesByKeyword = async () => {
-  const keyword = searchInput.value;
-  console.log("keyword", keyword);
-  url = new URL(
-    `https://api.themoviedb.org/3/search/movie?query=${keyword}&language=ko-KR`
-  );
-  getMovieData();
-};
-
-// 호진 작성
-
-const menus = document.querySelectorAll(".menus button");
-console.log("mmm", menus);
-
-menus.forEach((menu) =>
-  menu.addEventListener("click", (event) => getMoviesCategory(event))
-);
-
-const getMoviesCategory = async (event) => {
-  const category = event.target.id;
-  console.log("category", category);
-  let url;
-  if (
-    category === "popular" ||
-    category === "top_rated" ||
-    category === "now_playing"
-  ) {
-    url = new URL(`https://api.themoviedb.org/3/movie/${category}`);
-    url.searchParams.append("language", "ko-KR");
-  } else {
-    console.error("Invalid category");
-    return;
-  }
-
-  try {
-    const response = await fetch(url, options);
-    if (!response.ok) {
-      throw new Error("Network response was not ok");
-    }
-    const data = await response.json();
-    console.log("category", data);
-    movieList = data.results;
-    render();
-  } catch (error) {
-    console.error("There was a problem with the fetch operation:", error);
-  }
-};
-
-// 수영작성
-const pageSize = 20; // 한 페이지에 들어갈 개수
-const groupSize = 10; // pagination 5개씩 묶음
-let page = 1;
-let totalResult = 0;
-let totalPage = 0;
+// 무비리스트 저장
 let movieList = [];
 let genresList = [];
+
+
+
 let likeLMovieList = [];
 let genreObject = {};
 
-/* 여러개 장르를 선택할 때, 선택한 장르들의 id 값을 담아줄 변수 selectedGenresList 선언 */
-let selectedGenresList = [];
-
+// TMDB 불러오는 초기설정
 const options = {
   method: "GET",
   headers: {
@@ -95,39 +20,55 @@ const options = {
   },
 };
 
+/* TMDB에서 영화 데이터를 가져오는 함수 */
+const getMovieData = async () => {
+  try {
+    url.searchParams.set("page", page);
+    url.searchParams.set("pageSize", pageSize);
+    const response = await fetch(url, options);
+    const data = await response.json();
+    // response.status가 200일 경우 정상 작동
+    if (response.status === 200) {
+      //movieList 만들기 
+      movieList = data.results;
+      //movieList에 값이 없을 경우 error처리하여 다음값을 출력
+      if (movieList.length === 0) {
+        throw new Error("No result for this search");
+      }
+
+      /*페이지네이션에서 사용하는 변수 */
+      totalResult = data.total_results; // 전체 개수 불러오기
+      totalPage = data.total_pages; // 전체 페이지 불러오기
+
+      console.log("데이터 확인", data);
+      render(); //화면 그리기
+      paginationRender(); // 페이지네이션 그리기
+    } else {
+      throw new Error(data.message);
+    }
+  } catch (error) {
+    errorRender(error.message);
+  }
+};
+
+
+
+
+
+
+
+/* 여러개 장르를 선택할 때, 선택한 장르들의 id 값을 담아줄 변수 selectedGenresList 선언 */
+let selectedGenresList = [];
+
+
+
 /* 장르 버튼 별로 버튼 생성 및 클릭 이벤트 추가 */
 const genreMenus = document.querySelectorAll("#genre_menus button");
 genreMenus.forEach((genre) =>
   genre.addEventListener("click", (event) => genreFilterRender(event))
 );
 
-/* TMDB에서 영화 데이터를 가져오는 함수 */
-const getMovieData = async () => {
-  try {
-    url.searchParams.set("page", page); // =>&page=page
-    url.searchParams.set("pageSize", pageSize);
 
-    const response = await fetch(url, options);
-    const data = await response.json();
-    if (response.status === 200) {
-      if (data.results.length === 0) {
-        throw new Error("No result for this search");
-      }
-      movieList = data.results;
-      totalResult = data.total_results; // 전체 개수 불러오기
-      totalPage = data.total_pages; // 전체 페이지 불러오기
-
-      console.log("데이터 확인", data);
-      render();
-      paginationRender();
-    } else {
-      throw new Error(data.message);
-    }
-  } catch (error) {
-    console.log("error여기맞지?", error.message);
-    errorRender(error.message);
-  }
-};
 
 /* TMDB API를 통해 등록되어 있는 장르 id와 장르 이름이 담겨 있는 데이터를 가져오는 함수 */
 const getGenresList = async () => {
@@ -138,6 +79,7 @@ const getGenresList = async () => {
   const data = await response.json();
   genresList = data.genres;
 };
+
 
 /* 클릭한 장르에 해당하는 영화 목록만 필터링해서 렌더링해서 index.html 페이지에 보여주는 함수 */
 const genreFilterRender = (event) => {
@@ -250,11 +192,7 @@ const render = () => {
     movieHtml += `
     <div class="col-lg-3 col-md-4 col-sm-6 movieCard">
       <div class="cardImageArea">
-      <img src="${
-        movieList[i].poster_path
-          ? tmdbImageBaseUrl + movieList[i].poster_path
-          : "https://www.freeiconspng.com/thumbs/no-image-icon/no-image-icon-10.png"
-      }">
+       <img src="${movieList[i].poster_path? tmdbImageBaseUrl + movieList[i].poster_path: "https://www.freeiconspng.com/thumbs/no-image-icon/no-image-icon-10.png"}">
           <div class="overview">
             <p>
               ${
@@ -314,7 +252,6 @@ const main = async () => {
   checkMenus.style.display='none'
   
   page = 1;
-  getGenresList();
 
   // 장르 버튼들 하이라이트 되어 있는 것 초기화 및 선택한 장르들의 ID 값을 담고 있는 배열도 초기화
   genreMenus.forEach((genre) => {
@@ -325,98 +262,17 @@ const main = async () => {
   url = new URL(
     `https://api.themoviedb.org/3/movie/now_playing?language=ko-KR&region=KR`
   );
-  // url = new URL(`https://api.themoviedb.org/3/movie/popular&with_genres=28`);
-  getMovieData();
-};
-
-main();
-
-const paginationRender = () => {
-  // pageSize
-  // page
-  // groupSize
-  // totalPage
-  // totalResult
-
-  // pageGroup
-  const pageGroup = Math.ceil(page / groupSize);
-  // firstPage, lastPage
-  let lastPage = pageGroup * groupSize;
-  // 예) lastPage가 5인데 totalPage가 3인경우
-  if (lastPage > totalPage) {
-    lastPage = totalPage;
-  }
-  // 예) lastPage가 3이면 firstPage가 음수가 된다 이러한 일을 방지
-  let firstPage =
-    lastPage - (groupSize - 1) <= 0
-      ? 1
-      : pageGroup * groupSize - (groupSize - 1);
-
-  let paginationHTML = "";
-  if (pageGroup !== 1) {
-    paginationHTML += `
-          <li class="page-item" onclick="moveToPreGroupPage(${firstPage})"><a class="page-link" href="#">< 이전</a></li>
-      `;
-  }
-  for (let i = firstPage; i <= lastPage; i++) {
-    paginationHTML += `
-          <li class="page-item" onclick="moveToPage(${i})"><a class="page-link ${
-      i === page ? "active2" : ""
-    }" href="#">${i}</a></li>
-      `;
-  }
-  if (pageGroup !== Math.ceil(totalPage / groupSize)) {
-    paginationHTML += `
-          <li class="page-item" onclick="moveToNextGroupPage(${firstPage})"><a class="page-link" href="#">다음 ></a></li>
-      `;
-  }
-
-  document.querySelector(".pagination").innerHTML = paginationHTML;
-};
-
-//클릭한 page로 넘어가는 함수
-const moveToPage = (pageNum) => {
-  page = pageNum;
-  getMovieData();
-};
-
-//다음페이지로 넘어가는 함수
-const moveToNextGroupPage = (pageNum) => {
-  page = pageNum + groupSize;
-  getMovieData();
-};
-
-//이전페이지로 넘어가는 함수
-const moveToPreGroupPage = (pageNum) => {
-  page = pageNum - groupSize;
+  
   getMovieData();
 };
 
 
 
-/*카테고리를 눌렀을 때 인기 추천 최신이 나오는 함수 */
-const openMenus = ()=>{
-  if(checkMenus.style.display=="" || checkMenus.style.display=='none'){
-    checkMenus.style.display = 'flex'
-  }
-  else{
-    checkMenus.style.display='none'
-  }
-  if(checkGenres.style.display == 'flex'){
-    checkGenres.style.display='none'
-  }
-}
 
-/*장르를 눌렀을 때 장르목록이 나오는 함수 */
-const openGenre = ()=>{
-  if(checkGenres.style.display=="" || checkGenres.style.display=='none'){
-    checkGenres.style.display = 'flex'
-    console.log(checkGenres.style.display)
-  }
-  else{
-    checkGenres.style.display='none'
-  }
-  if(checkMenus.style.display == 'flex'){
-    checkMenus.style.display='none'
-  }
-}
+
+
+
+
+/*최종 실행 함수들 */
+getGenresList(); // 먼저 장르리스트에 값으 불러온다.
+main(); // 메인함수실행
